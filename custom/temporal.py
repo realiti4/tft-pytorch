@@ -213,6 +213,7 @@ class TemporalFusionTransformer(nn.Module):
 
         # Dev - Wrapper
         self.hparams = wrapper._hparams()
+        self.fixed_params = wrapper.fixed_params
 
         self.hidden_layer_size = self.hparams['hidden_layer_size']
         self.hidden_continuous_size = self.hparams['hidden_continuous_size']
@@ -461,11 +462,13 @@ class TemporalFusionTransformer(nn.Module):
         input dimensions: n_samples x time x variables
         """
         # Dev
-        encoder_lengths = torch.ones([64]).to(self.device) * 252
-        decoder_lengths = torch.ones([64]).to(self.device) * 5
+        batch_size = 64
+        encoder_lengths = torch.ones([batch_size]).to(self.device) * self.fixed_params['num_encoder_steps']
+        decoder_lengths = torch.ones([batch_size]).to(self.device) * (self.fixed_params['total_time_steps'] - self.fixed_params['num_encoder_steps'])
 
-        x_cat = x[..., 3:].long()  # [64, 257, 5]
-        x_cont = x[..., :3] # [64, 257, 3]
+        test = len(self.x_reals)
+        x_cat = x[..., test:].long()  # [64, 257, 5]
+        x_cont = x[..., :test] # [64, 257, 3]
         timesteps = x_cont.size(1)
         max_encoder_length = int(encoder_lengths.max())
         input_vectors = self.input_embeddings(x_cat)

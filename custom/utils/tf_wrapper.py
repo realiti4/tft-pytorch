@@ -19,10 +19,14 @@ class tf_wrapper:
         self.data_path = path
         self.output_path = output_path
         self.formatter = data_formatter
+        test = False
 
         # Load samples
         print("Loading & splitting data...")
         raw_data = pd.read_csv(self.data_path, index_col=0)
+        if test:
+            raw_data = raw_data.iloc[:int(len(raw_data)/20)]
+
         self.train, self.valid, self.test = self.formatter.split_data(raw_data)
         train_samples, valid_samples = self.formatter.get_num_samples_for_calibration(
         )
@@ -37,6 +41,7 @@ class tf_wrapper:
         column_def = fixed_params['column_definition']
 
         h_size = model_params['hidden_layer_size']
+        self.fixed_params = fixed_params
 
         # Dev
         # Functions
@@ -102,6 +107,7 @@ class tf_wrapper:
             'decoder_variables': hparams_out['time_varying_categoricals_decoder'] \
                 + [input_cols[i][0] for i in fixed_params['known_regular_inputs']]
         })
+        self.hparams = hparams_out
 
         hparams_example = {     # Old one for compare
             'hidden_layer_size': h_size,
@@ -185,13 +191,15 @@ class tf_wrapper:
 
         
 
-        num_encoder_steps = 252
+        num_encoder_steps = self.fixed_params['num_encoder_steps']
 
         # Functions.
-        def _batch_single_entity(input_data):
+        def _batch_single_entity(input_data, lags):
             time_steps = len(input_data)
-            lags = 257      # self.time_steps
-            x = input_data.values
+            # lags = 257      # self.time_steps
+            x = input_data.to_numpy()
+            if x.dtype == np.float64:
+                x = x.astype(np.float32)
             if time_steps >= lags:
                 return np.stack(
                     [x[i:time_steps - (lags - 1) + i, :] for i in range(lags)], axis=1)
@@ -225,7 +233,7 @@ class tf_wrapper:
 
             for k in col_mappings:
                 cols = col_mappings[k]
-                arr = _batch_single_entity(sliced[cols].copy())
+                arr = _batch_single_entity(sliced[cols].copy(), self.fixed_params['total_time_steps'])
 
                 if k not in data_map:
                     data_map[k] = [arr]

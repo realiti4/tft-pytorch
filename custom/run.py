@@ -10,6 +10,7 @@ from temporal import TemporalFusionTransformer
 from dataset import make_dataset
 from utils.tf_wrapper import tf_wrapper
 from data.volatility import VolatilityFormatter
+from data_formatters.electricity import ElectricityFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
 
@@ -36,10 +37,15 @@ from pytorch_forecasting.metrics import QuantileLoss
 
 # Initiliaze Model
 device = 'cuda'
+# wrapper = tf_wrapper(
+#     'output/formatted_omi_vol.csv',
+#     'output/volatility/',
+#     VolatilityFormatter(),
+# )
 wrapper = tf_wrapper(
-    'output/formatted_omi_vol.csv',
-    'output/volatility/',
-    VolatilityFormatter(),
+    'output/hourly_electricity.csv',
+    'output/electricity',
+    ElectricityFormatter(),
 )
 train_dataloader, val_dataloader = wrapper.make_dataset()
 
@@ -136,14 +142,14 @@ loss_func = QuantileLoss(quantiles=(0.1, 0.5, 0.9))
 scaler = torch.cuda.amp.GradScaler(enabled=False)
 
 model.to(device)
-eval(model, val_dataloader)
+# eval(model, val_dataloader)
 
 for epoch in range(50):
     # Train
     train(model, train_dataloader)
 
     # Eval
-    eval(model, val_dataloader)
+    # eval(model, val_dataloader)
 
     print(f'Epoch {epoch} has ended!')
     # break
