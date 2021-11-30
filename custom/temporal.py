@@ -41,7 +41,7 @@ from sub_modules import (
 class TemporalFusionTransformer(nn.Module):
     def __init__(
         self,
-        # raw_params,
+        batch_size: int,
         device = 'cpu',
         wrapper = None,
         hparams = None,
@@ -215,6 +215,7 @@ class TemporalFusionTransformer(nn.Module):
         # Dev - Wrapper
         self.hparams = wrapper._hparams()
         self.fixed_params = wrapper.fixed_params
+        self.batch_size = batch_size
 
         self.hidden_layer_size = self.hparams['hidden_layer_size']
         self.hidden_continuous_size = self.hparams['hidden_continuous_size']
@@ -464,8 +465,8 @@ class TemporalFusionTransformer(nn.Module):
         """
         # Dev
         batch_size = 64
-        encoder_lengths = torch.ones([batch_size]).to(self.device) * self.fixed_params['num_encoder_steps']
-        decoder_lengths = torch.ones([batch_size]).to(self.device) * (self.fixed_params['total_time_steps'] - self.fixed_params['num_encoder_steps'])
+        encoder_lengths = torch.ones([self.batch_size]).to(self.device) * self.fixed_params['num_encoder_steps']
+        decoder_lengths = torch.ones([self.batch_size]).to(self.device) * (self.fixed_params['total_time_steps'] - self.fixed_params['num_encoder_steps'])
 
         test = len(self.x_reals)
         x_cat = x[..., test:].long()  # [64, 257, 5]

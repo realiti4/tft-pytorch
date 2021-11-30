@@ -14,12 +14,15 @@ class tf_wrapper:
         path = None,
         output_path = None,
         data_formatter = None,
-
+        batch_size = None,
+        test = False,
     ) -> None:
+
         self.data_path = path
         self.output_path = output_path
         self.formatter = data_formatter
-        self.test = False
+        self.batch_size = batch_size
+        self.test = test
 
 
     def _hparams(self):
@@ -121,7 +124,7 @@ class tf_wrapper:
 
         return hparams_out
     
-    def make_dataset(self):
+    def make_dataset(self, batch_size):
         # Load samples
         print("Loading & splitting data...")
         raw_data = pd.read_csv(self.data_path, index_col=0)
@@ -151,14 +154,14 @@ class tf_wrapper:
         # self.model_params = params
         # self.fixed_params = fixed_params
 
-        return self.to_tensor(data, labels, valid_data, valid_labels)
+        return self.to_tensor(data, labels, valid_data, valid_labels, batch_size)
 
-    def to_tensor(self, data, labels, valid_data, valid_labels):
+    def to_tensor(self, data, labels, valid_data, valid_labels, batch_size):
         # Train
         dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
         train_dataloader = DataLoader(
             dataset,
-            batch_size=64,
+            batch_size=batch_size,
             shuffle=True,
             pin_memory=True,
             drop_last=True,
@@ -167,7 +170,7 @@ class tf_wrapper:
         val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
         val_dataloader = DataLoader(
             val_dataset,
-            batch_size=64,
+            batch_size=batch_size,
             pin_memory=True,
             drop_last=True,
         )

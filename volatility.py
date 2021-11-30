@@ -60,7 +60,7 @@ training = TimeSeriesDataSet(
     time_varying_known_reals=['days_from_start'],  # known input?
     time_varying_unknown_categoricals=[],
     time_varying_unknown_reals=[
-        # "log_vol",
+        "log_vol",
         "open_to_close",
     ],
     # target_normalizer=GroupNormalizer(

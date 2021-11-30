@@ -20,17 +20,20 @@ from pytorch_forecasting.metrics import QuantileLoss
 
 
 class tft:
-    def __init__(self, wrapper) -> None:
+    def __init__(self, wrapper, batch_size) -> None:
         self.device = 'cuda'
         self.fp16 = False
         self.wrapper = wrapper
+        self.fixed_params = self.wrapper.fixed_params
 
         # Params
         self.lr = 0.01
+        self.batch_size = batch_size
         self.quantiless = [0.1, 0.5, 0.9]
 
         # Network and Function
         self.net = TemporalFusionTransformer(
+            batch_size=self.batch_size,
             wrapper=self.wrapper,
             device=self.device,
 
@@ -53,6 +56,9 @@ class tft:
 
     def fit(self, epochs, train_dataloader, val_dataloader):
         
+        # Eval first
+        self.evaluate(0, val_dataloader)
+        
         for e in range(epochs):
             self.train(e, train_dataloader)
 
@@ -71,7 +77,7 @@ class tft:
         batch_size = 64
 
         with tqdm(
-            total=len(train_dataloader) * batch_size, desc=f'Training Epoch {epoch}',
+            total=len(train_dataloader) * self.batch_size, desc=f'Training Epoch {epoch}',
             # bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'
             ) as pbar:
 
@@ -102,7 +108,7 @@ class tft:
                 # Metrics
                 losses += loss.item()
 
-                pbar.update(batch_size)
+                pbar.update(self.batch_size)
                 
                 if i % 10 == 0:
                     pbar.set_postfix(Loss=(losses / 10), Val_Loss=2)
@@ -120,21 +126,14 @@ class tft:
         
         for i, batch in enumerate(dataiter):
             x, y = batch
-            if x.size(1) == 257:
+            if x.size(1) == self.fixed_params['total_time_steps']:
                 with torch.no_grad():
                     out = self.net(x.to(self.device))
                 loss += self.loss_func(out, y.to(self.device).squeeze(2)).item()
 
                 # Dev
                 if not plotted:
-                    x_test = x[63, :, 0].cpu().numpy()
-                    
-                    test = out[63].cpu().numpy()
-
-                    plt.plot(np.arange(252), x_test[:252])
-                    plt.plot(np.arange(252, 257), x_test[252:])
-                    plt.plot(np.arange(252, 257), test)
-                    plt.show()
+                    self.plot_func(x, out)
                     plotted = True
             else:
                 print('lan!')
@@ -143,9 +142,23 @@ class tft:
         print(loss / (i + 1))
         self.net.train()
 
-    def _create_datasets(self):
-        # Create Dataset
-        self.train_dataloader, self.val_dataloader = self.wrapper.make_dataset()
+    def plot_func(self, x, out):
+        """
+            Plotter
+        """
+        
+        num_encoder = self.fixed_params['num_encoder_steps']
+        total_time = self.fixed_params['total_time_steps']
+
+
+        x_test = x[63, :, 0].cpu().numpy()
+                    
+        test = out[63].cpu().numpy()
+
+        plt.plot(np.arange(num_encoder), x_test[:num_encoder])
+        plt.plot(np.arange(num_encoder, total_time), x_test[num_encoder:])
+        plt.plot(np.arange(num_encoder, total_time), test)
+        plt.show()
 
 
 
@@ -154,15 +167,18 @@ if __name__ == '__main__':
         'output/hourly_electricity.csv',
         'output/electricity',
         ElectricityFormatter(),
+        batch_size=64,
+        test=True,
     )
     # wrapper = tf_wrapper(
     #     'output/formatted_omi_vol.csv',
     #     'output/volatility/',
     #     VolatilityFormatter(),
     # )
-    train_dataloader, val_dataloader = wrapper.make_dataset()
+    batch_size = 64
+    train_dataloader, val_dataloader = wrapper.make_dataset(batch_size=batch_size)
 
-    model = tft(wrapper)
+    model = tft(wrapper, batch_size)
     model.fit(
         epochs=100,
         train_dataloader=train_dataloader,
