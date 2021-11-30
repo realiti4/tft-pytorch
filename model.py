@@ -11,8 +11,7 @@ from tqdm import tqdm
 
 from temporal import TemporalFusionTransformer
 from utils.tf_wrapper import tf_wrapper
-from data.volatility import VolatilityFormatter
-# from data_formatters.electricity import VolatilityFormatter
+from data_formatters.volatility import VolatilityFormatter
 from data_formatters.electricity import ElectricityFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
@@ -37,6 +36,7 @@ class tft:
             wrapper=self.wrapper,
             device=self.device,
 
+            # Dev - The below values are not functional
             learning_rate=0.01,
             hidden_size=160,
             attention_head_size=1,
@@ -52,7 +52,10 @@ class tft:
         self.loss_func = QuantileLoss(quantiles=self.quantiless)
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.fp16)
 
-        # self._create_datasets()
+        # Load something
+        self.load = False
+        if self.load:
+            self._load()
 
     def fit(self, epochs, train_dataloader, val_dataloader):
         
@@ -149,15 +152,6 @@ class tft:
         print(loss / (i + 1))
         self.net.train()
 
-    def _save(self):
-        output = 'test.pth'
-        torch.save({
-            'epoch': 0,
-            'model_state_dict': self.net.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'loss': 0,
-            }, output)
-    
     def plot_func(self, x, out):
         """
             Plotter
@@ -166,15 +160,36 @@ class tft:
         num_encoder = self.fixed_params['num_encoder_steps']
         total_time = self.fixed_params['total_time_steps']
 
+        select = [63]
+        if self.load:
+            select = range(100)
 
-        x_test = x[63, :, 0].cpu().numpy()
-                    
-        test = out[63].cpu().numpy()
+        # If shuffled show n different results for fun
+        for i in select:
 
-        plt.plot(np.arange(num_encoder), x_test[:num_encoder])
-        plt.plot(np.arange(num_encoder, total_time), x_test[num_encoder:])
-        plt.plot(np.arange(num_encoder, total_time), test)
-        plt.show()
+            x_test = x[i, :, 0].cpu().numpy()
+                        
+            test = out[i].cpu().numpy()
+
+            plt.plot(np.arange(num_encoder), x_test[:num_encoder])
+            plt.plot(np.arange(num_encoder, total_time), x_test[num_encoder:])
+            plt.plot(np.arange(num_encoder, total_time), test)
+            plt.show()
+
+    def _save(self):
+        path = 'test.pth'
+        torch.save({
+            'epoch': 0,
+            'model_state_dict': self.net.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'loss': 0,
+            }, path)
+
+    def _load(self):
+        path = 'test.pth'
+        checkpoint = torch.load(path)
+        self.net.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 
 

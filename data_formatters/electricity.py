@@ -21,7 +21,7 @@ entity specific z-score normalization.
 """
 
 import data_formatters.base
-import data.utils as utils
+import data_formatters.utils as utils
 import pandas as pd
 import sklearn.preprocessing
 

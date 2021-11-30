@@ -3,6 +3,7 @@ lightning_logs/
 output/
 colab/
 *.csv
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

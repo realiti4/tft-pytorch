@@ -171,6 +171,7 @@ class tf_wrapper:
         val_dataloader = DataLoader(
             val_dataset,
             batch_size=self.batch_size,
+            shuffle=True,
             pin_memory=True,
             drop_last=True,
         )
