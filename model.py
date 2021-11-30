@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from temporal import TemporalFusionTransformer
-from dataset import make_dataset
 from utils.tf_wrapper import tf_wrapper
 from data.volatility import VolatilityFormatter
+# from data_formatters.electricity import VolatilityFormatter
 from data_formatters.electricity import ElectricityFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
@@ -20,7 +20,7 @@ from pytorch_forecasting.metrics import QuantileLoss
 
 
 class tft:
-    def __init__(self, wrapper, batch_size) -> None:
+    def __init__(self, wrapper) -> None:
         self.device = 'cuda'
         self.fp16 = False
         self.wrapper = wrapper
@@ -28,7 +28,7 @@ class tft:
 
         # Params
         self.lr = 0.01
-        self.batch_size = batch_size
+        self.batch_size = self.wrapper.batch_size
         self.quantiless = [0.1, 0.5, 0.9]
 
         # Network and Function
@@ -63,8 +63,11 @@ class tft:
             self.train(e, train_dataloader)
 
             self.evaluate(e, val_dataloader)
+
+            # Checkpoint
+            self._save()
     
-    def train(self, epoch, train_dataloader):
+    def train(self, epoch, train_dataloader, limit=None):
         """
             1 Epoch training loop
         """
@@ -114,6 +117,10 @@ class tft:
                     pbar.set_postfix(Loss=(losses / 10), Val_Loss=2)
                     losses = 0
 
+                if limit:
+                    if limit > i:
+                        break
+
     def evaluate(self, e, val_dataloader):
         """
             1 Epoch evaluating loop
@@ -142,6 +149,15 @@ class tft:
         print(loss / (i + 1))
         self.net.train()
 
+    def _save(self):
+        output = 'test.pth'
+        torch.save({
+            'epoch': 0,
+            'model_state_dict': self.net.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'loss': 0,
+            }, output)
+    
     def plot_func(self, x, out):
         """
             Plotter
@@ -167,18 +183,18 @@ if __name__ == '__main__':
         'output/hourly_electricity.csv',
         'output/electricity',
         ElectricityFormatter(),
-        batch_size=64,
-        test=True,
+        batch_size=256,
+        test=False,
     )
     # wrapper = tf_wrapper(
     #     'output/formatted_omi_vol.csv',
     #     'output/volatility/',
     #     VolatilityFormatter(),
+    #     batch_size=64,
     # )
-    batch_size = 64
-    train_dataloader, val_dataloader = wrapper.make_dataset(batch_size=batch_size)
+    train_dataloader, val_dataloader = wrapper.make_dataset()
 
-    model = tft(wrapper, batch_size)
+    model = tft(wrapper)
     model.fit(
         epochs=100,
         train_dataloader=train_dataloader,

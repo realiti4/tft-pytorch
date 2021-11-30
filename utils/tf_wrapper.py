@@ -4,8 +4,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from data.base import InputTypes, DataTypes
-from data.utils import get_single_col_by_input_type
+from data_formatters.base import InputTypes, DataTypes
+from data_formatters.utils import get_single_col_by_input_type
 
 
 class tf_wrapper:
@@ -14,7 +14,7 @@ class tf_wrapper:
         path = None,
         output_path = None,
         data_formatter = None,
-        batch_size = None,
+        batch_size: int = 64,
         test = False,
     ) -> None:
 
@@ -124,7 +124,7 @@ class tf_wrapper:
 
         return hparams_out
     
-    def make_dataset(self, batch_size):
+    def make_dataset(self):
         # Load samples
         print("Loading & splitting data...")
         raw_data = pd.read_csv(self.data_path, index_col=0)
@@ -154,14 +154,14 @@ class tf_wrapper:
         # self.model_params = params
         # self.fixed_params = fixed_params
 
-        return self.to_tensor(data, labels, valid_data, valid_labels, batch_size)
+        return self.to_tensor(data, labels, valid_data, valid_labels)
 
-    def to_tensor(self, data, labels, valid_data, valid_labels, batch_size):
+    def to_tensor(self, data, labels, valid_data, valid_labels):
         # Train
         dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
         train_dataloader = DataLoader(
             dataset,
-            batch_size=batch_size,
+            batch_size=self.batch_size,
             shuffle=True,
             pin_memory=True,
             drop_last=True,
@@ -170,7 +170,7 @@ class tf_wrapper:
         val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
         val_dataloader = DataLoader(
             val_dataset,
-            batch_size=batch_size,
+            batch_size=self.batch_size,
             pin_memory=True,
             drop_last=True,
         )
