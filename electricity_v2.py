@@ -34,9 +34,11 @@ from pytorch_forecasting.data.examples import get_stallion_data
 data = pd.read_csv('output/hourly_electricity.csv', index_col=0)
 
 # cols = ['time_idx', 'power_usage', 'categorical_id']
-cols = ['time_idx', 'power_usage', 'hour', 'day_of_week', 'hours_from_start', 'categorical_id']
+cols = ['time_idx', 'power_usage', 'hour', 'day_of_week', 'hours_from_start', 'categorical_id', 'new_index']
 data['time_idx'] = (data['hours_from_start'] - data['hours_from_start'].min() + 1).astype(int)
 # data['day_of_week'] = data['day_of_week'].astype(str).astype("category")
+data[['hour', 'day_of_week']] = data[['hour', 'day_of_week']].astype(str)
+data['new_index'] = np.arange(len(data))
 data = data[cols]
 
 max_prediction_length = 24
@@ -55,9 +57,9 @@ training = TimeSeriesDataSet(
     max_prediction_length=max_prediction_length,
     static_categoricals=["categorical_id"],
     # static_reals=["avg_population_2017", "avg_yearly_household_income_2017"],
-    # time_varying_known_categoricals=["day_of_week"],
+    time_varying_known_categoricals=['hour', 'day_of_week'],
     # variable_groups={"special_days": special_days},  # group of categorical variables can be treated as one variable
-    time_varying_known_reals=['hour', 'day_of_week', "hours_from_start"],
+    time_varying_known_reals=["hours_from_start"],
     time_varying_unknown_categoricals=[],
     time_varying_unknown_reals=[
         "power_usage",
@@ -67,7 +69,7 @@ training = TimeSeriesDataSet(
     target_normalizer=GroupNormalizer(
         groups=["categorical_id"], transformation="softplus"
     ),  # use softplus and normalize by group
-    # target_normalizer=EncoderNormalizer(),
+    # target_normalizer=TorchNormalizer(),
     # add_relative_time_idx=True,
     # add_target_scales=True,
     add_encoder_length=False,
@@ -96,7 +98,7 @@ training = TimeSeriesDataSet(
 validation = TimeSeriesDataSet.from_dataset(training, data, predict=True, stop_randomization=True)
 
 # create dataloaders for model
-batch_size = 64  # set this between 32 to 128
+batch_size = 256  # set this between 32 to 128
 train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=0)
 val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size * 10, num_workers=0)
 
@@ -116,7 +118,7 @@ trainer = pl.Trainer(
     gpus=1,
     weights_summary="top",
     gradient_clip_val=0.01,
-    limit_train_batches=30,  # coment in for training, running valiation every 30 batches
+    # limit_train_batches=30,  # coment in for training, running valiation every 30 batches
     # fast_dev_run=True,  # comment in to check that networkor dataset has no serious bugs
     callbacks=[lr_logger],
     logger=logger,
@@ -125,7 +127,7 @@ trainer = pl.Trainer(
 
 tft = TemporalFusionTransformer.from_dataset(
     training,
-    learning_rate=0.03,
+    learning_rate=0.1,
     hidden_size=160,
     attention_head_size=4,
     dropout=0.1,
@@ -135,7 +137,7 @@ tft = TemporalFusionTransformer.from_dataset(
     # log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
     reduce_on_plateau_patience=4,
     optimizer='adam',
-    embedding_sizes={'categorical_id': (369, 160)},
+    # embedding_sizes={'categorical_id': (369, 160)},
 )
 print(f"Number of parameters in network: {tft.size()/1e3:.1f}k")
 
@@ -151,7 +153,7 @@ trainer.fit(
 # load the best model according to the validation loss
 # (given that we use early stopping, this is not necessarily the last epoch)
 best_model_path = trainer.checkpoint_callback.best_model_path   # ''
-best_model_path = 'lightning_logs/default/version_4/checkpoints/epoch=21-step=659.ckpt'
+best_model_path = 'lightning_logs/default/version_43/checkpoints/epoch=49-step=1499.ckpt'
 best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
 
 # calcualte mean absolute error on validation set

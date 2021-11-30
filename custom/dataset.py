@@ -21,13 +21,16 @@ def make_dataset():
     # Dev
     train = _batch_data(train, data_formatter.get_column_definition())
     data, labels = train['inputs'], train['outputs']
+    # Val
+    valid = _batch_data(valid, data_formatter.get_column_definition())
+    valid_data, valid_labels = valid['inputs'], valid['outputs']
 
     # Sets up default params
     fixed_params = data_formatter.get_experiment_params()
     params = data_formatter.get_default_model_params()
     params["model_folder"] = model_folder
 
-    return data, labels, params, fixed_params
+    return data, labels, valid_data, valid_labels, params, fixed_params
 
 def _batch_data(data, column_definition):
     """Batches data for training.
