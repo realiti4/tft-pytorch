@@ -41,7 +41,7 @@ from sub_modules import (
 class TemporalFusionTransformer(nn.Module):
     def __init__(
         self,
-        raw_params,
+        # raw_params,
         device = 'cpu',
         wrapper = None,
 

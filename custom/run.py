@@ -13,26 +13,26 @@ from data.volatility import VolatilityFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
 
-# Create Dataset
-data, labels, valid_data, valid_labels, params, fixed_params = make_dataset()
+# # Create Dataset
+# data, labels, valid_data, valid_labels, params, fixed_params = make_dataset()
 
-# Train
-dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
-train_dataloader = DataLoader(
-    dataset,
-    batch_size=64,
-    shuffle=True,
-    pin_memory=True,
-    drop_last=True,
-)
-# Valid
-val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
-val_dataloader = DataLoader(
-    val_dataset,
-    batch_size=64,
-    pin_memory=True,
-    drop_last=True,
-)
+# # Train
+# dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
+# train_dataloader = DataLoader(
+#     dataset,
+#     batch_size=64,
+#     shuffle=True,
+#     pin_memory=True,
+#     drop_last=True,
+# )
+# # Valid
+# val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
+# val_dataloader = DataLoader(
+#     val_dataset,
+#     batch_size=64,
+#     pin_memory=True,
+#     drop_last=True,
+# )
 
 # Initiliaze Model
 device = 'cuda'
@@ -41,9 +41,11 @@ wrapper = tf_wrapper(
     'output/volatility/',
     VolatilityFormatter(),
 )
+train_dataloader, val_dataloader = wrapper.make_dataset()
+
 
 model = TemporalFusionTransformer(
-    params,
+    # params,
     device=device,
     wrapper=wrapper,
 

@@ -1,6 +1,12 @@
 import numpy as np
 import pandas as pd
 
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+from data.base import InputTypes, DataTypes
+from data.utils import get_single_col_by_input_type
+
 
 class tf_wrapper:
     def __init__(
@@ -14,12 +20,14 @@ class tf_wrapper:
         self.output_path = output_path
         self.formatter = data_formatter
 
-        # self._make_dataset()
+        # Load samples
+        print("Loading & splitting data...")
+        raw_data = pd.read_csv(self.data_path, index_col=0)
+        self.train, self.valid, self.test = self.formatter.split_data(raw_data)
+        train_samples, valid_samples = self.formatter.get_num_samples_for_calibration(
+        )
         # Save Hparams
         # Sets up default params
-        # self.fixed_params = self.formatter.get_experiment_params()
-        # self.params = self.formatter.get_default_model_params()
-        # self.params["model_folder"] = self.output_path
         self._hparams()
 
     def _hparams(self):
@@ -30,12 +38,72 @@ class tf_wrapper:
 
         h_size = model_params['hidden_layer_size']
 
+        # Dev
+        # Functions
+        def _extract_tuples_from_data_type(data_type, defn):
+            return [
+                tup for tup in defn if tup[1] == data_type and
+                tup[2] not in {InputTypes.ID, InputTypes.TIME}
+            ]
+
+        input_cols = [
+            tup for tup in column_def
+            if tup[2] not in {InputTypes.ID, InputTypes.TIME}
+        ]
+
+        real_inputs = _extract_tuples_from_data_type(DataTypes.REAL_VALUED, input_cols)
+        cat_inputs = _extract_tuples_from_data_type(DataTypes.CATEGORICAL, input_cols)
+
         embedding_sizes = {
-            item[0]: 
+            tup[0]: (fixed_params['category_counts'][i], h_size)
+            for i, tup in enumerate(cat_inputs)
         }
 
 
         hparams_out = {
+            'hidden_layer_size': h_size,
+            'hidden_continuous_size': h_size,
+            'embedding_sizes': embedding_sizes,
+            'x_reals': [tup[0] for tup in real_inputs],
+            'x_categoricals': [tup[0] for tup in cat_inputs],
+            'reals': [tup[0] for tup in real_inputs],       # Compare this with x_reals
+            'static_categoricals': [input_cols[i][0] for i in fixed_params['static_input_loc']],
+            'static_reals': [],     # passing this for now
+            'time_varying_categoricals_encoder': [
+                tup[0] for tup in cat_inputs
+                if tup[2] not in {InputTypes.STATIC_INPUT}
+            ],
+            'time_varying_categoricals_decoder': [
+                tup[0] for tup in cat_inputs
+                if tup[2] not in {InputTypes.STATIC_INPUT}
+            ],
+            'time_varying_reals_encoder': [
+                tup[0] for tup in real_inputs
+                if tup[2] not in {InputTypes.STATIC_INPUT}
+            ],
+            'time_varying_reals_decoder': [input_cols[i][0] for i in fixed_params['known_regular_inputs']],
+            'lstm_layers': 1,
+            'attention_head_size': model_params['num_heads'],
+            'output_size': 3,
+            'n_targets': 1,
+            'static_variables': [input_cols[i][0] for i in fixed_params['static_input_loc']],
+            # 'encoder_variables': ['day_of_week', 'day_of_month', 'week_of_year', 'month', 'days_from_start', 'log_vol', 'open_to_close'],
+            # 'decoder_variables': ['day_of_week', 'day_of_month', 'week_of_year', 'month', 'days_from_start'],
+        }
+
+        # This is a mess!!
+        hparams_out.update({
+            'encoder_variables': hparams_out['time_varying_categoricals_encoder'] \
+                + [input_cols[i][0] for i in fixed_params['known_regular_inputs']] \
+                    + [
+                        item for item in hparams_out['time_varying_reals_encoder']
+                        if item not in hparams_out['time_varying_reals_decoder']
+                    ],
+            'decoder_variables': hparams_out['time_varying_categoricals_decoder'] \
+                + [input_cols[i][0] for i in fixed_params['known_regular_inputs']]
+        })
+
+        hparams_example = {     # Old one for compare
             'hidden_layer_size': h_size,
             'hidden_continuous_size': h_size,
             'embedding_sizes': {'day_of_week': (7, 160), 'day_of_month': (31, 160), 'week_of_year': (53, 160), 'month': (12, 160), 'Region': (4, 160)},
@@ -59,18 +127,13 @@ class tf_wrapper:
 
         return hparams_out
     
-    def _make_dataset(self):
-        print("Loading & splitting data...")
-        raw_data = pd.read_csv(self.data_path, index_col=0)
-        train, valid, test = self.formatter.split_data(raw_data)
-        train_samples, valid_samples = self.formatter.get_num_samples_for_calibration(
-        )
+    def make_dataset(self):
 
         # Dev
-        train = self._batch_data(train, self.formatter.get_column_definition())
+        train = self._batch_data(self.train, self.formatter.get_column_definition())
         data, labels = train['inputs'], train['outputs']
         # Val
-        valid = self._batch_data(valid, self.formatter.get_column_definition())
+        valid = self._batch_data(self.valid, self.formatter.get_column_definition())
         valid_data, valid_labels = valid['inputs'], valid['outputs']
 
         # # Sets up default params
@@ -81,10 +144,31 @@ class tf_wrapper:
         self.train = [data, labels]
         self.valid = [valid_data, valid_labels]
 
-        self.model_params = params
-        self.fixed_params = fixed_params
+        # self.model_params = params
+        # self.fixed_params = fixed_params
 
-        return data, labels, valid_data, valid_labels, params, fixed_params
+        return self.to_tensor(data, labels, valid_data, valid_labels)
+
+    def to_tensor(self, data, labels, valid_data, valid_labels):
+        # Train
+        dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
+        train_dataloader = DataLoader(
+            dataset,
+            batch_size=64,
+            shuffle=True,
+            pin_memory=True,
+            drop_last=True,
+        )
+        # Valid
+        val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=64,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+        return train_dataloader, val_dataloader
 
     def _batch_data(self, data, column_definition):
         """Batches data for training.
