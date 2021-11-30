@@ -44,6 +44,7 @@ class TemporalFusionTransformer(nn.Module):
         # raw_params,
         device = 'cpu',
         wrapper = None,
+        hparams = None,
 
         hidden_size: int = 16,
         lstm_layers: int = 1,

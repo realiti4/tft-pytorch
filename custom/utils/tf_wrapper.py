@@ -19,20 +19,8 @@ class tf_wrapper:
         self.data_path = path
         self.output_path = output_path
         self.formatter = data_formatter
-        test = False
+        self.test = False
 
-        # Load samples
-        print("Loading & splitting data...")
-        raw_data = pd.read_csv(self.data_path, index_col=0)
-        if test:
-            raw_data = raw_data.iloc[:int(len(raw_data)/20)]
-
-        self.train, self.valid, self.test = self.formatter.split_data(raw_data)
-        train_samples, valid_samples = self.formatter.get_num_samples_for_calibration(
-        )
-        # Save Hparams
-        # Sets up default params
-        self._hparams()
 
     def _hparams(self):
         # fixed_params = self.formatter.get_fixed_params()
@@ -134,12 +122,22 @@ class tf_wrapper:
         return hparams_out
     
     def make_dataset(self):
+        # Load samples
+        print("Loading & splitting data...")
+        raw_data = pd.read_csv(self.data_path, index_col=0)
+        if self.test:
+            raw_data = raw_data.iloc[:int(len(raw_data)/20)]
+
+        train, valid, test = self.formatter.split_data(raw_data)
+        train_samples, valid_samples = self.formatter.get_num_samples_for_calibration()
+        # Calculate params
+        self._hparams()
 
         # Dev
-        train = self._batch_data(self.train, self.formatter.get_column_definition())
+        train = self._batch_data(train, self.formatter.get_column_definition())
         data, labels = train['inputs'], train['outputs']
         # Val
-        valid = self._batch_data(self.valid, self.formatter.get_column_definition())
+        valid = self._batch_data(valid, self.formatter.get_column_definition())
         valid_data, valid_labels = valid['inputs'], valid['outputs']
 
         # # Sets up default params

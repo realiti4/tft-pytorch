@@ -11,15 +11,19 @@ from tqdm import tqdm
 
 from temporal import TemporalFusionTransformer
 from dataset import make_dataset
+from utils.tf_wrapper import tf_wrapper
+from data.volatility import VolatilityFormatter
+from data_formatters.electricity import ElectricityFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
 
 
 
 class tft:
-    def __init__(self) -> None:
-        self.device = 'cpu'
+    def __init__(self, wrapper) -> None:
+        self.device = 'cuda'
         self.fp16 = False
+        self.wrapper = wrapper
 
         # Params
         self.lr = 0.01
@@ -27,7 +31,7 @@ class tft:
 
         # Network and Function
         self.net = TemporalFusionTransformer(
-            None,
+            wrapper=self.wrapper,
             device=self.device,
 
             learning_rate=0.01,
@@ -39,25 +43,27 @@ class tft:
             loss=QuantileLoss(quantiles=(0.1, 0.5, 0.9)),
             log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
             reduce_on_plateau_patience=4,
-        )
+        ).to(self.device)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=0.01)
         self.loss_func = QuantileLoss(quantiles=self.quantiless)
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.fp16)
 
-        self._create_datasets()
+        # self._create_datasets()
 
-    def fit(self, epochs):
+    def fit(self, epochs, train_dataloader, val_dataloader):
         
         for e in range(epochs):
-            self.train(e)
+            self.train(e, train_dataloader)
+
+            self.evaluate(e, val_dataloader)
     
-    def train(self, epoch):
+    def train(self, epoch, train_dataloader):
         """
             1 Epoch training loop
         """
         #reset iterator
-        dataiter = iter(self.train_dataloader)
+        dataiter = iter(train_dataloader)
 
         losses= 0
 
@@ -65,55 +71,50 @@ class tft:
         batch_size = 64
 
         with tqdm(
-            total=len(self.train_dataloader) * batch_size, desc=f'Training Epoch {epoch}',
+            total=len(train_dataloader) * batch_size, desc=f'Training Epoch {epoch}',
             # bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'
             ) as pbar:
 
-            for i in range(len(self.train_dataloader)):
-                time.sleep(0.05)
+            for i, batch in enumerate(dataiter):
+                x, y = batch
+                        
+                #reset gradients
+                self.optimizer.zero_grad()
+
+                with torch.cuda.amp.autocast(enabled=False):
+                    out = self.net(x.to(self.device))     # [0] > tuple to dict
+
+                    loss = self.loss_func(out, y.to(self.device).squeeze(2))
+
+                #backpropagation
+                # loss.backward()
+                self.scaler.scale(loss).backward()
+
+                # Gradient Clipping
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 0.01)
+                
+                #update the parameters
+                # self.optimizer.step()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+
+                # Metrics
+                losses += loss.item()
 
                 pbar.update(batch_size)
-                pbar.set_postfix(Loss=1, Val_Loss=2)
-                # print('de')
-        
-        for i, batch in enumerate(dataiter):
-            x, y = batch
-                    
-            #reset gradients
-            self.optimizer.zero_grad()
+                
+                if i % 10 == 0:
+                    pbar.set_postfix(Loss=(losses / 10), Val_Loss=2)
+                    losses = 0
 
-            with torch.cuda.amp.autocast(enabled=False):
-                out = self.net(x.to(self.device))     # [0] > tuple to dict
-
-                loss = self.loss_func(out, y.to(self.device).squeeze(2))
-
-            #backpropagation
-            # loss.backward()
-            self.scaler.scale(loss).backward()
-
-            # Gradient Clipping
-            self.scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.net.parameters(), 0.01)
-            
-            #update the parameters
-            # self.optimizer.step()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-
-            # Metrics
-            losses += loss.item()
-
-            if i % 100 == 0:
-                print(losses / 100)
-                losses = 0
-
-    def evaluate(self):
+    def evaluate(self, e, val_dataloader):
         """
             1 Epoch evaluating loop
         """
         print('Evaluating')
         loss = 0
-        dataiter = iter(self.val_dataloader)
+        dataiter = iter(val_dataloader)
         self.net.eval()
         plotted = False
         
@@ -144,28 +145,26 @@ class tft:
 
     def _create_datasets(self):
         # Create Dataset
-        data, labels, valid_data, valid_labels, params, fixed_params = make_dataset()
+        self.train_dataloader, self.val_dataloader = self.wrapper.make_dataset()
 
-        # Train
-        dataset = TensorDataset(torch.Tensor(data), torch.Tensor(labels))
-        self.train_dataloader = DataLoader(
-            dataset,
-            batch_size=64,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=True,
-        )
-        # Valid
-        val_dataset = TensorDataset(torch.Tensor(valid_data), torch.Tensor(valid_labels))
-        self.val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=64,
-            pin_memory=True,
-            drop_last=True,
-        )
+
 
 if __name__ == '__main__':
-    model = tft()
+    wrapper = tf_wrapper(
+        'output/hourly_electricity.csv',
+        'output/electricity',
+        ElectricityFormatter(),
+    )
+    # wrapper = tf_wrapper(
+    #     'output/formatted_omi_vol.csv',
+    #     'output/volatility/',
+    #     VolatilityFormatter(),
+    # )
+    train_dataloader, val_dataloader = wrapper.make_dataset()
+
+    model = tft(wrapper)
     model.fit(
         epochs=100,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
     )        
