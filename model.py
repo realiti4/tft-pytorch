@@ -209,13 +209,13 @@ if __name__ == '__main__':
         VolatilityFormatter(),
         batch_size=256,
     )
-    # wrapper = tf_wrapper(   # Not working
-    #     'output/hourly_data.csv',
-    #     'output/traffic/',
-    #     TrafficFormatter(),
-    #     batch_size=64,
-    #     test=False,
-    # )
+    wrapper = tf_wrapper(
+        'output/traffic.csv',
+        'output/traffic/',
+        TrafficFormatter(),
+        batch_size=64,
+        test=False,
+    )
     train_dataloader, val_dataloader = wrapper.make_dataset()
 
     model = tft(wrapper)

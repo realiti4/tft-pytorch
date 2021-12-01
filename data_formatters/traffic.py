@@ -44,7 +44,7 @@ class TrafficFormatter(VolatilityFormatter):
   _column_definition = [
       ('id', DataTypes.REAL_VALUED, InputTypes.ID),
       ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
-      ('values', DataTypes.REAL_VALUED, InputTypes.TARGET),
+      ('target_values', DataTypes.REAL_VALUED, InputTypes.TARGET),
       ('time_on_day', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
       ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
       ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
