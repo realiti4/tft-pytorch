@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from data_formatters.base import InputTypes, DataTypes
 from data_formatters.utils import get_single_col_by_input_type
+from tft_dataset import TFTDataset
 
 
 class tf_wrapper:
@@ -136,7 +137,28 @@ class tf_wrapper:
         # Calculate params
         self._hparams()
 
-        # Dev
+        # Dev - create datasets
+        train_dataset = TFTDataset(train, self.formatter.get_column_definition(), self.fixed_params)
+        val_dataset = TFTDataset(valid, self.formatter.get_column_definition(), self.fixed_params)
+        # test
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            pin_memory=True,
+            drop_last=True,
+        )
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+        return train_dataloader, val_dataloader
+        
+        # train
         train = self._batch_data(train, self.formatter.get_column_definition())
         data, labels = train['inputs'], train['outputs']
         # Val

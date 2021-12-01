@@ -13,6 +13,7 @@ from temporal import TemporalFusionTransformer
 from utils.tf_wrapper import tf_wrapper
 from data_formatters.volatility import VolatilityFormatter
 from data_formatters.electricity import ElectricityFormatter
+from data_formatters.traffic import TrafficFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
 
@@ -177,7 +178,7 @@ class tft:
             plt.show()
 
     def _save(self):
-        path = 'test.pth'
+        path = 'output/test.pth'
         torch.save({
             'epoch': 0,
             'model_state_dict': self.net.state_dict(),
@@ -186,10 +187,11 @@ class tft:
             }, path)
 
     def _load(self):
-        path = 'test.pth'
+        path = 'output/test.pth'
         checkpoint = torch.load(path)
         self.net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print(f'Model is loaded from: {path}')
 
 
 
@@ -201,11 +203,18 @@ if __name__ == '__main__':
         batch_size=256,
         test=False,
     )
-    # wrapper = tf_wrapper(
-    #     'output/formatted_omi_vol.csv',
-    #     'output/volatility/',
-    #     VolatilityFormatter(),
+    wrapper = tf_wrapper(
+        'output/formatted_omi_vol.csv',
+        'output/volatility/',
+        VolatilityFormatter(),
+        batch_size=256,
+    )
+    # wrapper = tf_wrapper(   # Not working
+    #     'output/hourly_data.csv',
+    #     'output/traffic/',
+    #     TrafficFormatter(),
     #     batch_size=64,
+    #     test=False,
     # )
     train_dataloader, val_dataloader = wrapper.make_dataset()
 

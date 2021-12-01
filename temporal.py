@@ -213,7 +213,7 @@ class TemporalFusionTransformer(nn.Module):
         # self.decoder_variables = ['day_of_week', 'day_of_month', 'week_of_year', 'month', 'days_from_start']
 
         # Dev - Wrapper
-        self.hparams = wrapper._hparams()
+        self.hparams = wrapper.hparams
         self.fixed_params = wrapper.fixed_params
         self.batch_size = batch_size
 
