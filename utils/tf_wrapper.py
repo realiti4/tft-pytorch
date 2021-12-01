@@ -155,6 +155,7 @@ class tf_wrapper:
             pin_memory=True,
             drop_last=True,
         )
+        # self.test = train_dataloader
 
         return train_dataloader, val_dataloader
         
@@ -184,7 +185,7 @@ class tf_wrapper:
         train_dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=False,
             pin_memory=True,
             drop_last=True,
         )
@@ -197,6 +198,17 @@ class tf_wrapper:
             pin_memory=True,
             drop_last=True,
         )
+
+        # Dev
+        test1 = iter(self.test)
+        test2 = iter(train_dataloader)
+        # a1 = next(test1)
+        # a2 = next(test2)
+
+        for i, (out1, out2) in enumerate(zip(test1, test2)):    # [3823]
+            assert np.array_equal(out1[0], out2[0])
+            assert np.array_equal(out1[1], out2[1])
+            # print('de')
 
         return train_dataloader, val_dataloader
 

@@ -42,13 +42,13 @@ class TFTDataset(Dataset):
             if time_steps >= lags:
                 return x
 
-        def mapper(data_len, lags):
+        def mapper(data_len, lags, last_index_map):
             start = np.arange(data_len - lags + 1)
             end = start + lags
-            return np.stack([start, end], axis=1)
+            return np.stack([start, end], axis=1) + last_index_map
         
         data_map = {'index': []}
-        # total_index = 0
+        last_index_map = 0
         for _, sliced in data.groupby(id_col):
 
             col_mappings = {
@@ -60,7 +60,8 @@ class TFTDataset(Dataset):
 
             # No index here
             # total_index += (len(sliced) - 257)  # check here maybe + 1
-            map = mapper(len(sliced), self.params['total_time_steps'])
+            map = mapper(len(sliced), self.params['total_time_steps'], last_index_map)
+            last_index_map = map[-1][1]    # sum every slice's last index number so we can add for the next
             data_map['index'].append(map)
 
             for k in col_mappings:
