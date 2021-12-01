@@ -58,20 +58,20 @@ class tft:
         if self.load:
             self._load()
 
-    def fit(self, epochs, train_dataloader, val_dataloader):
+    def fit(self, epochs, train_dataloader, val_dataloader, limit_batch=None):
         
         # Eval first
         self.evaluate(0, val_dataloader)
         
         for e in range(epochs):
-            self.train(e, train_dataloader)
+            self.train(e, train_dataloader, limit_batch=limit_batch)
 
             self.evaluate(e, val_dataloader)
 
             # Checkpoint
             self._save()
     
-    def train(self, epoch, train_dataloader, limit=None):
+    def train(self, epoch, train_dataloader, limit_batch=None):
         """
             1 Epoch training loop
         """
@@ -81,10 +81,10 @@ class tft:
         losses= 0
 
         # Dev
-        batch_size = 64
+        total_size = len(train_dataloader) * self.batch_size if not limit_batch else limit_batch * self.batch_size
 
         with tqdm(
-            total=len(train_dataloader) * self.batch_size, desc=f'Training Epoch {epoch}',
+            total=total_size, desc=f'Training Epoch {epoch}',
             # bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'
             ) as pbar:
 
@@ -121,8 +121,8 @@ class tft:
                     pbar.set_postfix(Loss=(losses / 10), Val_Loss=2)
                     losses = 0
 
-                if limit:
-                    if limit > i:
+                if limit_batch:
+                    if limit_batch - 1 == i:
                         break
 
     def evaluate(self, e, val_dataloader):
@@ -213,7 +213,7 @@ if __name__ == '__main__':
         'output/traffic.csv',
         'output/traffic/',
         TrafficFormatter(),
-        batch_size=64,
+        batch_size=256,
         test=False,
     )
     train_dataloader, val_dataloader = wrapper.make_dataset()
@@ -223,4 +223,5 @@ if __name__ == '__main__':
         epochs=100,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
+        limit_batch=200,
     )        
