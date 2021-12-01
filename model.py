@@ -58,7 +58,13 @@ class tft:
         if self.load:
             self._load()
 
-    def fit(self, epochs, train_dataloader, val_dataloader, limit_batch=None):
+    def fit(
+        self,
+        epochs,
+        train_dataloader,
+        val_dataloader,
+        limit_batch=None    # How many batces per train
+    ):
         
         # Eval first
         self.evaluate(0, val_dataloader)
@@ -66,10 +72,11 @@ class tft:
         for e in range(epochs):
             self.train(e, train_dataloader, limit_batch=limit_batch)
 
-            self.evaluate(e, val_dataloader)
+            # val_loss = self.evaluate(e, val_dataloader)
+            val_loss = 0
 
             # Checkpoint
-            self._save()
+            self._save(e, val_loss)
     
     def train(self, epoch, train_dataloader, limit_batch=None):
         """
@@ -85,7 +92,8 @@ class tft:
 
         with tqdm(
             total=total_size, desc=f'Training Epoch {epoch}',
-            # bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'
+            # bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}',
+            # ascii=' ='
             ) as pbar:
 
             for i, batch in enumerate(dataiter):
@@ -149,9 +157,11 @@ class tft:
             else:
                 print('lan!')
 
+        val_loss = loss / (i + 1)
         print('Val_loss:')
-        print(loss / (i + 1))
+        print(val_loss)
         self.net.train()
+        return val_loss
 
     def plot_func(self, x, out):
         """
@@ -177,13 +187,13 @@ class tft:
             plt.plot(np.arange(num_encoder, total_time), test)
             plt.show()
 
-    def _save(self):
+    def _save(self, epochs, val_loss=0):
         path = 'output/test.pth'
         torch.save({
-            'epoch': 0,
+            'epoch': epochs,
             'model_state_dict': self.net.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'loss': 0,
+            'loss': val_loss,
             }, path)
 
     def _load(self):
@@ -213,7 +223,7 @@ if __name__ == '__main__':
         'output/traffic.csv',
         'output/traffic/',
         TrafficFormatter(),
-        batch_size=256,
+        batch_size=64,
         test=False,
     )
     train_dataloader, val_dataloader = wrapper.make_dataset()
@@ -223,5 +233,5 @@ if __name__ == '__main__':
         epochs=100,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
-        limit_batch=200,
-    )        
+        limit_batch=400,
+    )
