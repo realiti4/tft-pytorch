@@ -20,7 +20,7 @@ Defines dataset specific column definitions and data transformations.
 """
 
 import data_formatters.base
-import libs.utils as utils
+import data_formatters.utils as utils
 import pandas as pd
 import sklearn.preprocessing
 
@@ -55,7 +55,7 @@ class FavoritaFormatter(data_formatters.base.GenericDataFormatter):
       ('store_nbr', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('city', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('state', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
-      ('type', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+      # ('type', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('cluster', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('family', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('class', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),

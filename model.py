@@ -14,6 +14,7 @@ from utils.tf_wrapper import tf_wrapper
 from data_formatters.volatility import VolatilityFormatter
 from data_formatters.electricity import ElectricityFormatter
 from data_formatters.traffic import TrafficFormatter
+from data_formatters.favorita import FavoritaFormatter
 
 from pytorch_forecasting.metrics import QuantileLoss
 
@@ -21,7 +22,7 @@ from pytorch_forecasting.metrics import QuantileLoss
 
 class tft:
     def __init__(self, wrapper) -> None:
-        self.device = 'cuda'
+        self.device = 'cpu'
         self.fp16 = False
         self.wrapper = wrapper
         self.fixed_params = self.wrapper.fixed_params
@@ -72,8 +73,8 @@ class tft:
         for e in range(epochs):
             self.train(e, train_dataloader, limit_batch=limit_batch)
 
-            # val_loss = self.evaluate(e, val_dataloader)
-            val_loss = 0
+            val_loss = self.evaluate(e, val_dataloader)
+            # val_loss = 0
 
             # Checkpoint
             self._save(e, val_loss)
@@ -188,7 +189,7 @@ class tft:
             plt.show()
 
     def _save(self, epochs, val_loss=0):
-        path = 'output/test.pth'
+        path = 'output/test.pt'
         torch.save({
             'epoch': epochs,
             'model_state_dict': self.net.state_dict(),
@@ -197,7 +198,7 @@ class tft:
             }, path)
 
     def _load(self):
-        path = 'output/test.pth'
+        path = 'output/electricity.pth'
         checkpoint = torch.load(path)
         self.net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -213,19 +214,26 @@ if __name__ == '__main__':
         batch_size=256,
         test=False,
     )
-    wrapper = tf_wrapper(
-        'output/formatted_omi_vol.csv',
-        'output/volatility/',
-        VolatilityFormatter(),
-        batch_size=256,
-    )
-    wrapper = tf_wrapper(
-        'output/traffic.csv',
-        'output/traffic/',
-        TrafficFormatter(),
-        batch_size=64,
-        test=False,
-    )
+    # wrapper = tf_wrapper(
+    #     'output/formatted_omi_vol.csv',
+    #     'output/volatility/',
+    #     VolatilityFormatter(),
+    #     batch_size=256,
+    # )
+    # wrapper = tf_wrapper(
+    #     'output/traffic.csv',
+    #     'output/traffic/',
+    #     TrafficFormatter(),
+    #     batch_size=64,
+    #     test=False,
+    # )
+    # wrapper = tf_wrapper(
+    #     'temporal3.parquet',
+    #     'output/favorita/',
+    #     FavoritaFormatter(),
+    #     batch_size=128,
+    #     test=False,
+    # )
     train_dataloader, val_dataloader = wrapper.make_dataset()
 
     model = tft(wrapper)
@@ -233,5 +241,5 @@ if __name__ == '__main__':
         epochs=100,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
-        limit_batch=400,
+        limit_batch=1200,
     )

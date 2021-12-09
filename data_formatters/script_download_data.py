@@ -658,5 +658,5 @@ if __name__ == '__main__':
     # main(expt_name=name, force_download=force, output_folder=folder)
 
     # Dev
-    name, force, folder = 'volatility', 'yes', 'output'
+    name, force, folder = 'favorita', 'yes', 'output'
     main(expt_name=name, force_download=force, output_folder=folder)

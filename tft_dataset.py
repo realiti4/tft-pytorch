@@ -51,29 +51,30 @@ class TFTDataset(Dataset):
         last_index_map = 0
         for _, sliced in data.groupby(id_col):
 
-            col_mappings = {
-                'identifier': [id_col],
-                'time': [time_col],
-                'outputs': [target_col],
-                'inputs': input_cols
-            }
+            if not len(sliced) == 0:
+                col_mappings = {
+                    'identifier': [id_col],
+                    'time': [time_col],
+                    'outputs': [target_col],
+                    'inputs': input_cols
+                }
 
-            # No index here
-            # total_index += (len(sliced) - 257)  # check here maybe + 1
-            map = mapper(len(sliced), self.params['total_time_steps'], last_index_map)
-            last_index_map = map[-1][1]    # sum every slice's last index number so we can add for the next
-            data_map['index'].append(map)
+                # No index here
+                # total_index += (len(sliced) - 257)  # check here maybe + 1
+                map = mapper(len(sliced), self.params['total_time_steps'], last_index_map)
+                last_index_map = map[-1][1]    # sum every slice's last index number so we can add for the next
+                data_map['index'].append(map)
 
-            for k in col_mappings:
-                cols = col_mappings[k]
+                for k in col_mappings:
+                    cols = col_mappings[k]
 
-                arr = convert_to_array(sliced[cols], self.params['total_time_steps'])
+                    arr = convert_to_array(sliced[cols], self.params['total_time_steps'])
 
 
-                if k not in data_map:
-                    data_map[k] = [arr]
-                else:
-                    data_map[k].append(arr)
+                    if k not in data_map:
+                        data_map[k] = [arr]
+                    else:
+                        data_map[k].append(arr)
 
         # Combine all data
         for k in data_map:

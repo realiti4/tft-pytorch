@@ -133,7 +133,7 @@ trainer.fit(
 # load the best model according to the validation loss
 # (given that we use early stopping, this is not necessarily the last epoch)
 best_model_path = trainer.checkpoint_callback.best_model_path   # ''
-best_model_path = 'lightning_logs/default/version_32/checkpoints/epoch=8-step=14327.ckpt'
+best_model_path = 'lightning_logs/default/version_0/checkpoints/epoch=8-step=14327.ckpt'
 best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
 
 # raw predictions are a dictionary from which all kind of information including quantiles can be extracted
